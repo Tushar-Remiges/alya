@@ -14,13 +14,13 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/remiges-tech/alya/jobs"
 	"github.com/remiges-tech/alya/jobs/examples"
+	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
 	"github.com/remiges-tech/alya/jobs/pg/batchsqlc"
 	"github.com/remiges-tech/alya/wscutils"
 	"github.com/remiges-tech/logharbour/logharbour"
 )
 
-type EmailBatchProcessor struct {
-}
+type EmailBatchProcessor struct{}
 
 func (p *EmailBatchProcessor) DoBatchJob(initBlock jobs.InitBlock, context jobs.JSONstr, line int, input jobs.JSONstr) (status batchsqlc.StatusEnum, result jobs.JSONstr, messages []wscutils.ErrorMessage, blobRows map[string]string, err error) {
 	// Parse the input JSON
@@ -132,6 +132,20 @@ func (ib *EmailInitBlock) Close() error {
 }
 
 func main() {
+
+	// Initialize serversage
+	tracerProvider, meterProvider, err := metrics.InitServersage("localhost:4317", "EmailBatchProcessor")
+	if err != nil {
+		log.Fatalf("Failed to initialize telemetry: %v", err)
+	}
+	defer func() {
+		if err := tracerProvider.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Failed to shutdown tracer provider: %v", err)
+		}
+		if err := meterProvider.Shutdown(context.Background()); err != nil {
+			log.Fatalf("Failed to shutdown meter provider: %v", err)
+		}
+	}()
 	// Initialize the database connection
 	pool := getDb()
 
@@ -142,7 +156,7 @@ func main() {
 
 	// Create a new Minio client instance with the default credentials
 	minioClient, err := minio.New("localhost:9000", &minio.Options{
-		Creds:  credentials.NewStaticV4("minioadmin", "minioadmin", ""),
+		Creds:  credentials.NewStaticV4("minio99", "minio123", ""),
 		Secure: false,
 	})
 	if err != nil {
@@ -163,7 +177,9 @@ func main() {
 	logger := logharbour.NewLogger(lctx, "JobManager", os.Stdout)
 
 	// Initialize JobManager
-	jm := jobs.NewJobManager(pool, redisClient, minioClient, logger, nil)
+	jm := jobs.NewJobManagerWithMetric(pool, redisClient, minioClient, logger, &jobs.JobManagerConfig{
+		BatchOutputBucket: bucketName,
+	}, meterProvider)
 
 	// Register the batch processor and initializer
 	err = jm.RegisterProcessorBatch("emailapp", "sendbulkemail", &EmailBatchProcessor{})

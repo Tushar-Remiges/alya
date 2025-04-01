@@ -12,6 +12,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
 	"github.com/remiges-tech/alya/jobs/objstore"
 	"github.com/remiges-tech/alya/jobs/pg/batchsqlc"
 )
@@ -86,6 +87,9 @@ func (jm *JobManager) summarizeBatch(q batchsqlc.Querier, batchID uuid.UUID) err
 	if err != nil {
 		return fmt.Errorf("failed to update batch summary: %v", err)
 	}
+
+	metrics.RecordBatchTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumQueued), -1)
+	metrics.RecordBatchTotal(batch.App+"/"+batch.Op, string(batchStatus), 1)
 
 	// Update status in redis
 	err = updateStatusInRedis(jm.RedisClient, batchID, batchStatus, 100*jm.Config.BatchStatusCacheDurSec)

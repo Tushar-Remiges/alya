@@ -1,0 +1,66 @@
+version: '3.8'
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command:
+      - "--config=/conf/config.yaml"
+    volumes:
+      - ./etc/otel-collector-config.yaml:/conf/config.yaml
+    ports:
+      - "4317:4317" # OTLP gRPC receiver
+      - "8889:8889" # Prometheus metrics exporter
+    restart: on-failure
+    container_name: otel-collector
+    networks:
+      alya:
+        aliases:
+          - otel-collector
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: serversage-prometheus
+    user: root
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      alya:
+        aliases:
+          - prometheus
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: serversage
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: on-failure
+    networks:
+      alya:
+        aliases:
+          - grafana
+
+volumes:
+  grafana-data:
+  prometheus-data:
+  tempo-data:
+  loki-data:
+  redis-data:
+
+networks:
+  alya:
+    driver: bridge
+    name: alya
+    attachable: true

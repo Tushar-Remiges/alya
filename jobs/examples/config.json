@@ -1,0 +1,66 @@
+{
+    "metrics": [
+      {
+        "name": "batch_total",
+        "type": "counter",
+        "help": "Counts the total number of batches processed.",
+        "labels": [
+          "op",
+          "status"
+        ]
+      },
+      {
+        "name": "batch_duration_seconds",
+        "type": "histogram",
+        "labels": [
+          "op",
+          "status"
+        ],
+        "buckets": [
+          0.001,
+          0.01,
+          0.1,
+          0.5,
+          1,
+          5,
+          10
+        ],
+        "help": "Measures time taken to process batches."
+      },
+    
+      
+
+
+      {
+        "name": "batch_rows_total",
+        "type": "counter",
+        "help": "Counts the total number of rows processed.",
+        "labels": [
+          "op",
+          "status"
+        ]
+      },
+     
+
+
+      {
+        "name": "batch_row_duration_seconds",
+        "type": "histogram",
+        "labels": [
+          "op"
+        ],
+        "buckets": [
+          0.001,
+          0.01,
+          0.1,
+          0.5,
+          1,
+          5,
+          10
+        ],
+        "help": "Measures time taken to process each row."
+      }
+    
+
+    ]
+  }

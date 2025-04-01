@@ -15,10 +15,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
+	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
 	"github.com/remiges-tech/alya/jobs/objstore"
 	"github.com/remiges-tech/alya/jobs/pg/batchsqlc"
 	"github.com/remiges-tech/alya/wscutils"
 	"github.com/remiges-tech/logharbour/logharbour"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 )
 
 const ALYA_BATCHCHUNK_NROWS = 10
@@ -49,6 +51,7 @@ type JobManager struct {
 	batchprocessorfuncs     map[string]BatchProcessor
 	Logger                  *logharbour.Logger
 	Config                  JobManagerConfig
+	MeterProvider           *sdkmetric.MeterProvider
 }
 
 // NewJobManager creates a new instance of JobManager.
@@ -76,6 +79,33 @@ func NewJobManager(db *pgxpool.Pool, redisClient *redis.Client, minioClient *min
 		batchprocessorfuncs:     make(map[string]BatchProcessor),
 		Logger:                  logger,
 		Config:                  *config,
+	}
+}
+
+func NewJobManagerWithMetric(db *pgxpool.Pool, redisClient *redis.Client, minioClient *minio.Client, logger *logharbour.Logger, config *JobManagerConfig, meterProvider *sdkmetric.MeterProvider) *JobManager {
+	if config == nil {
+		config = &JobManagerConfig{}
+	}
+	// check zero value of each field in config and set their default values
+	if config.BatchChunkNRows == 0 {
+		config.BatchChunkNRows = ALYA_BATCHCHUNK_NROWS
+	}
+	if config.BatchStatusCacheDurSec == 0 {
+		config.BatchStatusCacheDurSec = ALYA_BATCHSTATUS_CACHEDUR_SEC
+	}
+
+	return &JobManager{
+		Db:                      db,
+		Queries:                 batchsqlc.New(db),
+		RedisClient:             redisClient,
+		ObjStore:                objstore.NewMinioObjectStore(minioClient),
+		initblocks:              make(map[string]InitBlock),
+		initfuncs:               make(map[string]Initializer),
+		slowqueryprocessorfuncs: make(map[string]SlowQueryProcessor),
+		batchprocessorfuncs:     make(map[string]BatchProcessor),
+		Logger:                  logger,
+		Config:                  *config,
+		MeterProvider:           meterProvider,
 	}
 }
 
@@ -189,6 +219,8 @@ func (jm *JobManager) Run() {
 				time.Sleep(getRandomSleepDuration())
 				continue
 			}
+			metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
+			metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), 1)
 
 			if row.Status == batchsqlc.StatusEnumQueued {
 				// Update the status of the batch to "inprog"
@@ -211,6 +243,8 @@ func (jm *JobManager) Run() {
 					time.Sleep(getRandomSleepDuration())
 					continue
 				}
+				// metrics.RecordBatchTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
+				// metrics.RecordBatchTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), 1)
 			}
 
 		}
@@ -227,12 +261,16 @@ func (jm *JobManager) Run() {
 		for _, row := range blockOfRows {
 			// send queries instance, not transaction
 			q := jm.Queries
+			startTime := time.Now()
 			_, err = jm.processRow(q, row)
 			if err != nil {
 				log.Println("Error processing row:", err)
 				time.Sleep(getRandomSleepDuration())
 				continue
 			}
+			duration := time.Since(startTime).Seconds()
+			metrics.RecordBatchRowDurationSeconds(row.App+"/"+row.Op, duration)
+
 		}
 
 		// create a new transaction for the summarizeCompletedBatches
@@ -448,6 +486,9 @@ func (jm *JobManager) updateBatchJobResult(txQueries batchsqlc.Querier, row batc
 	if err != nil {
 		return err
 	}
+
+	metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), -1)
+	metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(status), 1)
 
 	return nil
 }
