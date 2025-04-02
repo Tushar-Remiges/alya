@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
+	metrics "github.com/remiges-tech/alya/jobs/metrics"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
@@ -91,7 +91,7 @@ func (jm *JobManager) BatchSubmit(app, op string, batchctx JSONstr, batchInput [
 		return "", err
 	}
 
-	metrics.RecordBatchTotal(app+"/"+op, string(status), 1)
+	metrics.RecordAlyaBatchTotal(app+"/"+op, string(status), 1)
 
 	// Insert records into the batchrows table
 	batchRowsParam := batchsqlc.BulkInsertIntoBatchRowsParams{
@@ -106,7 +106,7 @@ func (jm *JobManager) BatchSubmit(app, op string, batchctx JSONstr, batchInput [
 		batchRowsParam.Input[i] = []byte(input.Input.String())
 		batchRowsParam.Reqat[i] = pgtype.Timestamp{Time: time.Now(), Valid: true}
 
-		metrics.RecordBatchRowsTotal(app+"/"+op, string(status), 1)
+		metrics.RecordAlyaBatchRowsTotal(app+"/"+op, string(status), 1)
 	}
 	_, err = jm.Queries.BulkInsertIntoBatchRows(context.Background(), batchRowsParam)
 	if err != nil {
@@ -264,8 +264,8 @@ func (jm *JobManager) BatchAbort(batchID string) (status batchsqlc.StatusEnum, n
 	if err != nil {
 		return "", 0, 0, 0, fmt.Errorf("failed to update batchrows status: %v", err)
 	}
-	metrics.RecordBatchRowsTotal(batch.App+"/"+batch.Op, string(batch.Status), -1)
-	metrics.RecordBatchRowsTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumAborted), 1)
+	metrics.RecordAlyaBatchRowsTotal(batch.App+"/"+batch.Op, string(batch.Status), -1)
+	metrics.RecordAlyaBatchRowsTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumAborted), 1)
 
 	// Fetch the updated batchrows records for the batch
 	updatedBatchRows, err := queries.GetBatchRowsByBatchID(context.Background(), batchUUID)

@@ -14,7 +14,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/remiges-tech/alya/jobs"
 	"github.com/remiges-tech/alya/jobs/examples"
-	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
+	metrics "github.com/remiges-tech/alya/jobs/metrics"
 	"github.com/remiges-tech/alya/jobs/pg/batchsqlc"
 	"github.com/remiges-tech/alya/wscutils"
 	"github.com/remiges-tech/logharbour/logharbour"
@@ -177,7 +177,7 @@ func main() {
 	logger := logharbour.NewLogger(lctx, "JobManager", os.Stdout)
 
 	// Initialize JobManager
-	jm := jobs.NewJobManagerWithMetric(pool, redisClient, minioClient, logger, &jobs.JobManagerConfig{
+	jm := jobs.NewJobManagerWithMetrics(pool, redisClient, minioClient, logger, &jobs.JobManagerConfig{
 		BatchOutputBucket: bucketName,
 	}, meterProvider)
 

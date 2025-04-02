@@ -1,7 +1,7 @@
 {
     "metrics": [
       {
-        "name": "batch_total",
+        "name": "alya_batch_total",
         "type": "counter",
         "help": "Counts the total number of batches processed.",
         "labels": [
@@ -10,7 +10,7 @@
         ]
       },
       {
-        "name": "batch_duration_seconds",
+        "name": "alya_batch_duration_seconds",
         "type": "histogram",
         "labels": [
           "op",
@@ -27,12 +27,8 @@
         ],
         "help": "Measures time taken to process batches."
       },
-    
-      
-
-
       {
-        "name": "batch_rows_total",
+        "name": "alya_batch_rows_total",
         "type": "counter",
         "help": "Counts the total number of rows processed.",
         "labels": [
@@ -40,11 +36,8 @@
           "status"
         ]
       },
-     
-
-
       {
-        "name": "batch_row_duration_seconds",
+        "name": "alya_batch_row_duration_seconds",
         "type": "histogram",
         "labels": [
           "op"
@@ -60,7 +53,5 @@
         ],
         "help": "Measures time taken to process each row."
       }
-    
-
     ]
   }

@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
-	metrics "github.com/remiges-tech/alya/jobs/examples/metrics"
+	metrics "github.com/remiges-tech/alya/jobs/metrics"
 	"github.com/remiges-tech/alya/jobs/objstore"
 	"github.com/remiges-tech/alya/jobs/pg/batchsqlc"
 	"github.com/remiges-tech/alya/wscutils"
@@ -82,7 +82,7 @@ func NewJobManager(db *pgxpool.Pool, redisClient *redis.Client, minioClient *min
 	}
 }
 
-func NewJobManagerWithMetric(db *pgxpool.Pool, redisClient *redis.Client, minioClient *minio.Client, logger *logharbour.Logger, config *JobManagerConfig, meterProvider *sdkmetric.MeterProvider) *JobManager {
+func NewJobManagerWithMetrics(db *pgxpool.Pool, redisClient *redis.Client, minioClient *minio.Client, logger *logharbour.Logger, config *JobManagerConfig, meterProvider *sdkmetric.MeterProvider) *JobManager {
 	if config == nil {
 		config = &JobManagerConfig{}
 	}
@@ -219,8 +219,8 @@ func (jm *JobManager) Run() {
 				time.Sleep(getRandomSleepDuration())
 				continue
 			}
-			metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
-			metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), 1)
+			metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
+			metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), 1)
 
 			if row.Status == batchsqlc.StatusEnumQueued {
 				// Update the status of the batch to "inprog"
@@ -269,7 +269,7 @@ func (jm *JobManager) Run() {
 				continue
 			}
 			duration := time.Since(startTime).Seconds()
-			metrics.RecordBatchRowDurationSeconds(row.App+"/"+row.Op, duration)
+			metrics.RecordAlyaBatchRowDurationSeconds(row.App+"/"+row.Op, duration)
 
 		}
 
@@ -487,8 +487,8 @@ func (jm *JobManager) updateBatchJobResult(txQueries batchsqlc.Querier, row batc
 		return err
 	}
 
-	metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), -1)
-	metrics.RecordBatchRowsTotal(row.App+"/"+row.Op, string(status), 1)
+	metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), -1)
+	metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(status), 1)
 
 	return nil
 }
