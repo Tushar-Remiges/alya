@@ -243,8 +243,6 @@ func (jm *JobManager) Run() {
 					time.Sleep(getRandomSleepDuration())
 					continue
 				}
-				// metrics.RecordBatchTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
-				// metrics.RecordBatchTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumInprog), 1)
 			}
 
 		}
@@ -439,7 +437,8 @@ func updateSlowQueryResult(txQueries batchsqlc.Querier, row batchsqlc.FetchBlock
 	if err != nil {
 		return err
 	}
-
+	metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(batchsqlc.StatusEnumQueued), -1)
+	metrics.RecordAlyaBatchRowsTotal(row.App+"/"+row.Op, string(status), 1)
 	return nil
 }
 

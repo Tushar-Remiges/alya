@@ -299,6 +299,8 @@ func (jm *JobManager) BatchAbort(batchID string) (status batchsqlc.StatusEnum, n
 	if err != nil {
 		return "", 0, 0, 0, fmt.Errorf("failed to update batch summary: %v", err)
 	}
+	metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batch.Status), -1)
+	metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumAborted), 1)
 
 	// Commit the transaction
 	fmt.Printf("jobs.abort before tx.commit")
@@ -347,6 +349,7 @@ func (jm *JobManager) BatchAppend(batchID string, batchinput []batchsqlc.InsertI
 		if err != nil {
 			return 0, fmt.Errorf("failed to insert batch row: %v", err)
 		}
+		metrics.RecordAlyaBatchRowsTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumQueued), 1)
 	}
 
 	// Update the batch status to "queued" if waitabit is false
@@ -358,6 +361,9 @@ func (jm *JobManager) BatchAppend(batchID string, batchinput []batchsqlc.InsertI
 		if err != nil {
 			return 0, fmt.Errorf("failed to update batch status: %v", err)
 		}
+		metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batch.Status), -1)
+		metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumQueued), 1)
+
 	}
 
 	// Commit the transaction

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	metrics "github.com/remiges-tech/alya/jobs/metrics"
+
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -243,6 +245,8 @@ func (jm *JobManager) SlowQueryAbort(reqID string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to update batch summary: %v", err)
 	}
+	metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batch.Status), -1)
+	metrics.RecordAlyaBatchTotal(batch.App+"/"+batch.Op, string(batchsqlc.StatusEnumAborted), 1)
 
 	// Fetch the pending batchrows records associated with the batch ID
 	pendingRows, err := jm.Queries.GetPendingBatchRows(context.Background(), reqIDUUID)
@@ -264,7 +268,7 @@ func (jm *JobManager) SlowQueryAbort(reqID string) (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to update batchrows status: %v", err)
 	}
-
+	// todo generate metrics for aborted rows but status is queued or inprogress
 	// Commit the transaction
 	err = tx.Commit(context.Background())
 	if err != nil {
